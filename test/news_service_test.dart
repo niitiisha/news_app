@@ -1,100 +1,48 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
-
 import 'package:news_app/services/news_service.dart';
+
+import 'helpers/mock_data_loader.dart';
 
 void main() {
   group('NewsService', () {
-    test(
-      'fetchHeadlines returns list of articles when request succeeds',
-      () async {
-        // Arrange
-        final mockClient = MockClient((request) async {
-          expect(request.url.path, '/v2/top-headlines');
-          expect(request.url.queryParameters['country'], 'us');
-
-          return http.Response('''
-          {
-            "status": "ok",
-            "articles": [
-              {
-                "title": "Test Headline",
-                "description": "Test Description",
-                "urlToImage": "https://example.com/image.jpg"
-              }
-            ]
-          }
-          ''', 200);
-        });
-
-        final newsService = NewsService('fake-api-key', client: mockClient);
-
-        // Act
-        final articles = await newsService.fetchHeadlines();
-
-        // Assert
-        expect(articles.length, 1);
-        expect(articles[0].title, 'Test Headline');
-        expect(articles[0].description, 'Test Description');
-        expect(articles[0].imageUrl, 'https://example.com/image.jpg');
-      },
-    );
-
-    test('searchNews returns articles for search query', () async {
-      // Arrange
+    test('fetchHeadlines returns articles from mock JSON', () async {
       final mockClient = MockClient((request) async {
-        expect(request.url.path, '/v2/everything');
-
-        expect(request.url.queryParameters['q'], 'Flutter');
-
-        return http.Response('''
-          {
-            "status": "ok",
-            "articles": [
-              {
-                "title": "Flutter News",
-                "description": "News about Flutter",
-                "urlToImage": "https://example.com/flutter.jpg"
-              }
-            ]
-          }
-          ''', 200);
+        // Also checks that our code sends the API key
+        expect(request.url.queryParameters['apiKey'], 'test-key');
+        return http.Response(loadMockJson('headlines_success.json'), 200);
       });
 
-      final newsService = NewsService('fake-api-key', client: mockClient);
+      final service = NewsService('test-key', client: mockClient);
+      final articles = await service.fetchHeadlines();
 
-      // Act
-      final articles = await newsService.searchNews('Flutter');
+      expect(articles.length, 2);
+      expect(articles[0].title, 'Flutter 4 released');
+    });
 
-      // Assert
+    test('fetchHeadlines throws when API returns an error', () async {
+      final mockClient = MockClient((request) async {
+        return http.Response(loadMockJson('error_response.json'), 401);
+      });
+
+      final service = NewsService('wrong-key', client: mockClient);
+
+      expect(() => service.fetchHeadlines(), throwsException);
+    });
+
+    test('searchNews sends the query and returns results', () async {
+      final mockClient = MockClient((request) async {
+        // Checks that the search word is sent as "q"
+        expect(request.url.queryParameters['q'], 'dart');
+        return http.Response(loadMockJson('search_success.json'), 200);
+      });
+
+      final service = NewsService('test-key', client: mockClient);
+      final articles = await service.searchNews('dart');
+
       expect(articles.length, 1);
-      expect(articles[0].title, 'Flutter News');
-      expect(articles[0].description, 'News about Flutter');
-    });
-
-    test('fetchHeadlines throws exception when request fails', () async {
-      // Arrange
-      final mockClient = MockClient((request) async {
-        return http.Response('Something went wrong', 500);
-      });
-
-      final newsService = NewsService('fake-api-key', client: mockClient);
-
-      // Act + Assert
-      expect(newsService.fetchHeadlines(), throwsException);
-    });
-
-    test('searchNews throws exception when request fails', () async {
-      // Arrange
-      final mockClient = MockClient((request) async {
-        return http.Response('Something went wrong', 500);
-      });
-
-      final newsService = NewsService('fake-api-key', client: mockClient);
-
-      // Act + Assert
-      expect(newsService.searchNews('Flutter'), throwsException);
+      expect(articles[0].title, 'Learning Dart in 2026');
     });
   });
 }

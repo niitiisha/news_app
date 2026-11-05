@@ -1,0 +1,16 @@
+{
+  "status": "ok",
+  "totalResults": 2,
+  "articles": [
+    {
+      "title": "Flutter 4 released",
+      "description": "Google announces a new Flutter version.",
+      "urlToImage": "https://example.com/flutter.jpg"
+    },
+    {
+      "title": "Article with missing data",
+      "description": null,
+      "urlToImage": null
+    }
+  ]
+}

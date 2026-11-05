@@ -1,0 +1,11 @@
+{
+  "status": "ok",
+  "totalResults": 1,
+  "articles": [
+    {
+      "title": "Learning Dart in 2026",
+      "description": "A beginner guide to Dart.",
+      "urlToImage": "https://example.com/dart.jpg"
+    }
+  ]
+}

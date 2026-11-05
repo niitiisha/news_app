@@ -1,73 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
-import '../models/article.dart';
-import '../services/analytics_service.dart';
-import '../services/news_service.dart';
+import '../providers/news_provider.dart';
 import '../widgets/news_card.dart';
 
 class SearchPage extends StatefulWidget {
-  final NewsService newsService;
-  final AnalyticsService analyticsService;
-
-  const SearchPage({
-    super.key,
-    required this.newsService,
-    required this.analyticsService,
-  });
+  const SearchPage({super.key});
 
   @override
   State<SearchPage> createState() => _SearchPageState();
 }
 
 class _SearchPageState extends State<SearchPage> {
+  // The text field controller is UI-only, so it stays in the screen
   final TextEditingController searchController = TextEditingController();
 
-  List<Article> searchArticles = [];
-
-  bool isSearching = false;
-
-  Future<void> searchNews() async {
-    final query = searchController.text.trim();
-
-    if (query.isEmpty) {
-      return;
-    }
-
-    // Analytics: user tapped the Search button
-    await widget.analyticsService.logRequestTapped('search_news');
-
-    setState(() {
-      isSearching = true;
-    });
-
-    try {
-      final results = await widget.newsService.searchNews(query);
-
-      // Analytics: NewsAPI request succeeded
-      await widget.analyticsService.logRequestSuccess('search_news');
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        searchArticles = results;
-        isSearching = false;
-      });
-    } catch (error) {
-      // Analytics: NewsAPI request failed
-      await widget.analyticsService.logRequestFailed('search_news');
-
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        isSearching = false;
-      });
-
-      debugPrint('Failed to search news: $error');
-    }
+  void onSearchPressed() {
+    // read = just call the method, no rebuild needed here
+    context.read<NewsProvider>().searchNews(searchController.text);
   }
 
   @override
@@ -78,6 +28,9 @@ class _SearchPageState extends State<SearchPage> {
 
   @override
   Widget build(BuildContext context) {
+    // watch = rebuild this screen when search data changes
+    final newsProvider = context.watch<NewsProvider>();
+
     return Column(
       children: [
         Padding(
@@ -91,30 +44,40 @@ class _SearchPageState extends State<SearchPage> {
                     hintText: 'Search news...',
                     border: OutlineInputBorder(),
                   ),
+                  onSubmitted: (_) => onSearchPressed(),
                 ),
               ),
-
               const SizedBox(width: 10),
-
               ElevatedButton(
-                onPressed: searchNews,
+                onPressed: onSearchPressed,
                 child: const Text('Search'),
               ),
             ],
           ),
         ),
-
-        Expanded(
-          child: isSearching
-              ? const Center(child: CircularProgressIndicator())
-              : ListView.builder(
-                  itemCount: searchArticles.length,
-                  itemBuilder: (context, index) {
-                    return NewsCard(article: searchArticles[index]);
-                  },
-                ),
-        ),
+        Expanded(child: buildResults(newsProvider)),
       ],
+    );
+  }
+
+  Widget buildResults(NewsProvider newsProvider) {
+    if (newsProvider.isSearching) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (newsProvider.searchError != null) {
+      return Center(child: Text(newsProvider.searchError!));
+    }
+
+    if (newsProvider.searchResults.isEmpty) {
+      return const Center(child: Text('Search for any news topic'));
+    }
+
+    return ListView.builder(
+      itemCount: newsProvider.searchResults.length,
+      itemBuilder: (context, index) {
+        return NewsCard(article: newsProvider.searchResults[index]);
+      },
     );
   }
 }
